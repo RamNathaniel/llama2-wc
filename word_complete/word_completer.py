@@ -1,7 +1,8 @@
 import torch
+from torch import nn
 
 from llama.tokenizer import Tokenizer
-from llama.model_single import ModelArgs, RMSNorm, Attention, FeedForward, TransformerBlock
+from llama.model_single import ModelArgs, RMSNorm, Attention, FeedForward, TransformerBlock, precompute_freqs_cis
 
 class WordCompleter(torch.nn.Module):
     @staticmethod

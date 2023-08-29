@@ -1,3 +1,4 @@
+import torch
 from llama.tokenizer import Tokenizer
 
 def get_suffix_mask(t: Tokenizer, device: torch.device) -> torch.Tensor:

@@ -1,0 +1,7 @@
+this is a test
+space at the end 
+ space at the start
+
+ 
+After empty lines
+Last line

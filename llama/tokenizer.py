@@ -38,6 +38,11 @@ class Tokenizer:
     def decode(self, t: List[int]) -> str:
         return self.sp_model.decode(t)
 
+    def id_to_piece(self, id: int) -> str:
+        return self.sp_model.IdToPiece(id)
+
+    def is_suffix(self, id: int) -> bool:
+        return not self.id_to_piece(id).startswith("▁")
 
 if __name__ == "__main__":
     def get_args():

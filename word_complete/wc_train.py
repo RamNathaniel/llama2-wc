@@ -5,10 +5,22 @@ from pathlib import Path
 from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 from typing import Tuple
 import time
+from textfile_gen import TextfileGen
+
 CHECKPOINT_DIR = '/home/ram_nathaniel/llama/llama-2-7b'
 TOKENIZER_PATH = '/home/ram_nathaniel/llama/tokenizer.model'
 MAX_SEQ_LEN = 1024
 MAX_BATCH_SIZE = 1
+
+DEVICE = 'cuda'
+
+CORPUS = '/home/ram_nathaniel/lib/1984.txt'
+
+tokenizer = Tokenizer(TOKENIZER_PATH)
+suffix_mask = wc_loss.get_suffix_mask(tokenizer, torch.device(DEVICE))
+
+token_gen = TextfileGen(CORPUS, tokenizer).get_file_tokens()
+
 
 def load(
     ckpt_dir: str,

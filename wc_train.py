@@ -1,6 +1,8 @@
 import torch
 
 import json
+import math
+from statistics import mean
 from pathlib import Path
 from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 from typing import Tuple, List
@@ -77,9 +79,12 @@ def load(
     return model, tokenizer
 
 def run_llama_on_tokens(model: Transformer, tokens: List[int]) -> torch.Tensor:
-    tokens_tensor = torch.unsqueeze(torch.tensor(tokens).long(), 0).cuda()
-    logits = model(tokens_tensor, 0)
-    probs = torch.nn.functional.softmax(logits)[0, :]
+    with torch.no_grad():
+        tokens_tensor = torch.unsqueeze(torch.tensor(tokens).long(), 0).cuda()
+
+        model.training = False
+        logits = model(tokens_tensor, 0)
+        probs = torch.nn.functional.softmax(logits, dim=1)[0, :]
 
     return probs
 
@@ -93,8 +98,12 @@ wc_model.to(DEVICE)
 # Optimizers specified in the torch.optim package
 optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.001, momentum=0.9)
 
+start_time = time.time()
+
+total_loss = []
 window = []
 pos = 0
+samples = 0
 for token in tokens_gen:
     pos += 1
     window.append(token)
@@ -103,19 +112,35 @@ for token in tokens_gen:
     if len(window) == WINDOW_SIZE:
         probs = run_llama_on_tokens(model, window).detach()
 
+        suffix_percent = torch.sum(suffix_mask.float() * probs)
+
+        if suffix_percent < 0.1:
+            continue
+
+        samples += 1
         wc_tokens_tensor = torch.unsqueeze(torch.tensor(window[-WC_WINDOW_SIZE:]).long(), 0).cuda().detach()
 
-        wc_model.train(True)
-
         optimizer.zero_grad()
+        wc_model.zero_grad()
         logits = wc_model.forward(wc_tokens_tensor, 0)
-        wc_probs = torch.nn.functional.softmax(logits)[0, :]
-        loss = wc_loss(wc_probs, probs, suffix_mask, wc_probs.device)
+        wc_probs = torch.nn.functional.softmax(logits, dim=1)[0, :]
+        loss = wc_loss(wc_probs, probs.detach(), suffix_mask.detach(), wc_probs.device)
 
-        loss.backward()
+        loss.backward(retain_graph=True)
         optimizer.step()
 
-        wc_model.train(False)
+        total_loss.append(math.sqrt(loss.item()))
+        if len(total_loss) > 100:
+            total_loss.pop(0)
 
-        if pos % 1 == 0:
-            print(f'pos: {pos}, loss: {loss:.4f}, %suffix: {torch.sum(suffix_mask.float() * probs):.4f}')
+        if samples % 10 == 0:
+            txt = tokenizer.decode(window[-6:])
+            sec = (time.time() - start_time)
+            print(f'pos: {pos}, samples: {samples}, loss: {torch.sqrt(loss):.6f}, %suffix: {suffix_percent:.4f}, txt: ...{txt} (+{int(sec)} sec)')
+
+        if samples % 1000 == 0:
+            l = mean(total_loss)
+            fn = f'/home/ram_nathaniel/checkpoints/wc-model_{pos}_{l}.pth'
+
+            torch.save(wc_model.state_dict(), fn)
+            print(f'Saved model to {fn}')

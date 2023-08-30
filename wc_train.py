@@ -19,7 +19,7 @@ DEVICE = 'cuda'
 CORPUS = '/home/ram_nathaniel/lib/1984.txt'
 
 tokenizer = Tokenizer(TOKENIZER_PATH)
-suffix_mask = get_suffix_mask(tokenizer, torch.device(DEVICE))
+suffix_mask = get_suffix_mask(tokenizer, torch.device(DEVICE)).detach()
 
 tokens_gen = TextfileGen(CORPUS, tokenizer).get_file_tokens()
 
@@ -91,7 +91,7 @@ wc_model = WordCompleter()
 wc_model.to(DEVICE)
 
 # Optimizers specified in the torch.optim package
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.001, momentum=0.9)
 
 window = []
 pos = 0
@@ -101,16 +101,21 @@ for token in tokens_gen:
     if len(window) > WINDOW_SIZE:
         window.pop(0)
     if len(window) == WINDOW_SIZE:
+        probs = run_llama_on_tokens(model, window).detach()
+
+        wc_tokens_tensor = torch.unsqueeze(torch.tensor(window[-WC_WINDOW_SIZE:]).long(), 0).cuda().detach()
+
+        wc_model.train(True)
+
         optimizer.zero_grad()
-
-        probs = run_llama_on_tokens(model, window)
-
-        logits = wc_model.forward(torch.unsqueeze(torch.tensor(window).long(), 0).cuda(), -WC_WINDOW_SIZE)
+        logits = wc_model.forward(wc_tokens_tensor, 0)
         wc_probs = torch.nn.functional.softmax(logits)[0, :]
         loss = wc_loss(wc_probs, probs, suffix_mask, wc_probs.device)
 
         loss.backward()
         optimizer.step()
+
+        wc_model.train(False)
 
         if pos % 1 == 0:
             print(f'pos: {pos}, loss: {loss:.4f}, %suffix: {torch.sum(suffix_mask.float() * probs):.4f}')

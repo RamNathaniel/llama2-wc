@@ -62,7 +62,10 @@ class WordCompleter(torch.nn.Module):
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
         self.freqs_cis = self.freqs_cis.to(h.device)
-        freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
+        if start_pos + seqlen == 0:
+            freqs_cis = self.freqs_cis[start_pos:]
+        else:
+            freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
 
         mask = None
         if seqlen > 1:

@@ -17,5 +17,5 @@ def wc_loss(
     """
     Computes the loss for the word completer model.
     """
-    loss = torch.mean((logits(suffix_mask) - labels(suffix_mask))**2)
+    loss = torch.mean((logits[suffix_mask] - labels[suffix_mask])**2)
     return loss

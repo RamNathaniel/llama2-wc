@@ -22,6 +22,7 @@ CORPUS = '/home/ram_nathaniel/lib/1984.txt'
 
 tokenizer = Tokenizer(TOKENIZER_PATH)
 suffix_mask = get_suffix_mask(tokenizer, torch.device(DEVICE)).detach()
+suffix_count = torch.sum(suffix_mask.float()).item()
 
 tokens_gen = TextfileGen(CORPUS, tokenizer).get_file_tokens()
 
@@ -102,11 +103,18 @@ start_time = time.time()
 
 total_loss = []
 window = []
+next_token: int = None
 pos = 0
 samples = 0
 for token in tokens_gen:
     pos += 1
-    window.append(token)
+    if next_token is None:
+        next_token = token
+        continue
+
+    window.append(next_token)
+    next_token = token
+
     if len(window) > WINDOW_SIZE:
         window.pop(0)
     if len(window) == WINDOW_SIZE:
@@ -129,14 +137,14 @@ for token in tokens_gen:
         loss.backward(retain_graph=True)
         optimizer.step()
 
-        total_loss.append(math.sqrt(loss.item()))
+        total_loss.append(math.sqrt(loss.item()) * suffix_count)
         if len(total_loss) > 100:
             total_loss.pop(0)
 
         if samples % 10 == 0:
             txt = tokenizer.decode(window[-6:])
             sec = (time.time() - start_time)
-            print(f'pos: {pos}, samples: {samples}, loss: {torch.sqrt(loss):.6f}, %suffix: {suffix_percent:.4f}, txt: ...{txt} (+{int(sec)} sec)')
+            print(f'pos: {pos}, samples: {samples}, loss: {torch.sqrt(loss) * suffix_count:.6f}, %suffix: {suffix_percent:.4f}, txt: ...{txt} -> {tokenizer.id_to_piece(next_token)} (+{int(sec)} sec)')
 
         if samples % 1000 == 0:
             l = mean(total_loss)

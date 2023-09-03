@@ -12,12 +12,21 @@ from word_complete.textfile_gen import TextfileGen
 from word_complete.wc_loss import wc_loss, get_suffix_mask
 from word_complete.word_completer import WordCompleter
 from word_complete.wc_utils import WcUtils
+from models_files_manager import ModelsFilesManager
+from iterutils import IterUtil
 
 CORPUS = '/home/ram_nathaniel/lib/1984.txt'
 DEVICE = 'cuda'
 
 output_folder = os.path.join('/home/ram_nathaniel/suffixes', os.path.basename(CORPUS))
 os.makedirs(output_folder, exist_ok=True)
+
+manager = ModelsFilesManager(output_folder, ['pos', 'suffix_percent', 'probs'], ext='txt')
+last_pos_fn = IterUtil(manager.get_model_files()).max_item(lambda fn: int(manager.get_fields_values(fn)['pos']))
+last_pos = max([int(manager.get_fields_values(fn)['pos']) for fn in manager.get_model_files()])
+
+if last_pos is not None:
+    print(f'Last pos: {last_pos} - we will continue from there')
 
 BATCH_SIZE = 1
 
@@ -45,6 +54,9 @@ for token in tokens_gen:
     if len(window) > WINDOW_SIZE:
         window.pop(0)
     
+    if last_pos is not None and pos <= last_pos:
+        continue
+
     if len(window) == WINDOW_SIZE:
         # we filled up the winodw, so we can start filling up the batch
         start_time = time.time()

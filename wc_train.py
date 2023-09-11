@@ -1,3 +1,4 @@
+import os
 import torch
 
 import json
@@ -7,96 +8,54 @@ from pathlib import Path
 from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 from typing import Tuple, List
 import time
+from word_complete.batch_gen import BatchGen
 from word_complete.textfile_gen import TextfileGen
 from word_complete.wc_loss import wc_loss, get_suffix_mask
 from word_complete.word_completer import WordCompleter
 from word_complete.wc_utils import WcUtils
 
 CORPUS = '/home/ram_nathaniel/lib/1984.txt'
+SUFFIXES_FOLDER = '/home/ram_nathaniel/suffixes/1984.txt'
 DEVICE = 'cuda'
 
+BATCH_SIZE = 32
+
 tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
-suffix_mask = get_suffix_mask(tokenizer, torch.device(DEVICE)).detach()
-suffix_count = torch.sum(suffix_mask.float()).item()
 
-tokens_gen = TextfileGen(CORPUS, tokenizer).get_file_tokens()
-
-WINDOW_SIZE = 1024
-WC_WINDOW_SIZE = 64
-
-model, tokenizer = WcUtils.load_model()
 wc_model = WordCompleter()
 wc_model.to(DEVICE)
 
 # Optimizers specified in the torch.optim package
 optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.001, momentum=0.9)
 
-start_time = time.time()
+batch: int = 0
+epoch: int = 0
 
-total_loss = []
-window = []
-next_token: int = None
-pos = 0
-samples = 0
-for token in tokens_gen:
-    pos += 1
-    if next_token is None:
-        next_token = token
-        continue
+def on_batch_train(tokens: torch.Tensor, labels: torch.Tensor):
+    start_time = time.time()
 
-    window.append(next_token)
-    next_token = token
+    optimizer.zero_grad()
+    wc_model.zero_grad()
+    logits, indicator = wc_model.forward(tokens.to(DEVICE), 0)
 
-    if len(window) > WINDOW_SIZE:
-        window.pop(0)
-    if len(window) == WINDOW_SIZE:
-        probs = WcUtils.run_llama_on_tokens(model, window).detach()
+    # wc_probs = torch.nn.functional.softmax(logits, dim=1)
+    loss = torch.nn.BCELoss(indicator, labels.to(DEVICE))
+    
+    loss.backward(retain_graph=True)
+    optimizer.step()
 
-        suffix_percent = torch.sum(suffix_mask.float() * probs)
+    took = time.time() - start_time
+    print(f'batch: {batch}, loss: {loss:.6f}, took: {took:.2f} sec')
 
-        if suffix_percent < 0.1:
-            continue
+    batch += 1
+    pass
 
-        if suffix_percent > 0.9:
-            # save this point + probs
-            fn = f'/home/ram_nathaniel/suffixes/{pos}_{suffix_percent}_probs.txt'
-            with open(fn, 'wb') as f:
-                torch.save(probs, f)
+def on_epoch():
+    # should run on the valuation set, to see how we are doing.
+    epoch += 1
+    batch = 0
+    pass
 
-        samples += 1
-        wc_tokens_tensor = torch.unsqueeze(torch.tensor(window[-WC_WINDOW_SIZE:]).long(), 0).cuda().detach()
+batch_gen_train = BatchGen(CORPUS, SUFFIXES_FOLDER, BATCH_SIZE, on_batch_train, on_epoch)
 
-        optimizer.zero_grad()
-        wc_model.zero_grad()
-        logits = wc_model.forward(wc_tokens_tensor, 0)
-        wc_probs = torch.nn.functional.softmax(logits, dim=1)[0, :]
-        loss = wc_loss(
-            wc_probs,
-            probs.detach(),
-            suffix_mask.detach(),
-            wc_probs.device)
-
-        loss.backward(retain_graph=True)
-        optimizer.step()
-
-        total_loss.append(math.sqrt(loss.item()) * suffix_count)
-        if len(total_loss) > 100:
-            total_loss.pop(0)
-
-        if samples % 10 == 0:
-            txt = tokenizer.decode(window[-6:])
-            sec = (time.time() - start_time)
-            next_token_str = tokenizer.id_to_piece(next_token)
-
-            print(f'pos: {pos}, '
-                + f'samples: {samples}, '
-                + f'loss: {torch.sqrt(loss) * suffix_count:.6f}, '
-                + f'%suffix: {suffix_percent:.4f}, '
-                + f'txt: ...{txt} -> {next_token_str} (+{int(sec)} sec)')
-
-        if samples % 1000 == 0:
-            l = mean(total_loss)
-            fn = f'/home/ram_nathaniel/checkpoints/wc-model_{pos}_{l}.pth'
-
-            torch.save(wc_model.state_dict(), fn)
-            print(f'Saved model to {fn}')
+batch_gen_train.run(epochs=-1)

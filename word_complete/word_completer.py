@@ -3,6 +3,7 @@ from torch import nn
 
 from llama.tokenizer import Tokenizer
 from llama.model_single import ModelArgs, RMSNorm, Attention, FeedForward, TransformerBlock, precompute_freqs_cis
+from .wc_utils import WcUtils
 
 class WordCompleter(torch.nn.Module):
     @staticmethod
@@ -29,7 +30,7 @@ class WordCompleter(torch.nn.Module):
             dim=64,  # much smaller context.
             n_layers=1,
             n_heads=8,
-            vocab_size=32000,
+            vocab_size=WcUtils.VOCAB_SIZE,
             multiple_of=64,
             norm_eps=1e-5,
             max_batch_size=32,
@@ -53,6 +54,8 @@ class WordCompleter(torch.nn.Module):
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
         self.output = nn.Linear(params.dim, params.vocab_size, bias=False)
+
+        self.indicator = nn.Linear(params.dim, 1, bias=False)
 
         self.freqs_cis = precompute_freqs_cis(
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
@@ -78,4 +81,5 @@ class WordCompleter(torch.nn.Module):
             h = layer(h, start_pos, freqs_cis, mask)
         h = self.norm(h)
         output = self.output(h[:, -1, :])  # only compute last logits
-        return output.float()
+        indicator = self.indicator(h[:, -1, :])
+        return output.float(), indicator.float()

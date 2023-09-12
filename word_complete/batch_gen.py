@@ -1,10 +1,11 @@
 import os
 import torch
 
+from typing import Callable
 from llama import Tokenizer
-from word_complete.textfile_gen import TextfileGen
+from .textfile_gen import TextfileGen
+from .wc_utils import WcUtils
 
-from word_complete.wc_utils import WcUtils
 
 class BatchGen:
     WINDOW_SIZE = 1024
@@ -15,8 +16,8 @@ class BatchGen:
             corpus: str,
             suffix_folder: str,
             batch_size: int,
-            on_batch: callable[torch.Tensor, torch.Tensor],
-            on_epoch: callable):
+            on_batch: Callable,  # [torch.Tensor, torch.Tensor],
+            on_epoch: Callable):
         
         self.corpus = corpus
         self.suffix_folder = suffix_folder

@@ -7,8 +7,6 @@ from pathlib import Path
 from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 from typing import Tuple, List
 import time
-from word_complete.textfile_gen import TextfileGen
-import word_complete.wc_utils
 
 
 class WcUtils:
@@ -16,6 +14,8 @@ class WcUtils:
     TOKENIZER_PATH = '/home/ram_nathaniel/llama/tokenizer.model'
     MAX_SEQ_LEN = 1024
     MAX_BATCH_SIZE = 1
+
+    VOCAB_SIZE = 32000
 
     @staticmethod
     def load_model() -> Tuple[Transformer, Tokenizer]:

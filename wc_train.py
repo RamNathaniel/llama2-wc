@@ -26,12 +26,10 @@ wc_model = WordCompleter()
 wc_model.to(DEVICE)
 
 # Optimizers specified in the torch.optim package
-optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.1, momentum=0.9)
 
-batch: int = 0
-epoch: int = 0
 
-def on_batch_train(tokens: torch.Tensor, labels: torch.Tensor):
+def on_batch_train(epoch: int, batch: int, tokens: torch.Tensor, labels: torch.Tensor):
     start_time = time.time()
 
     optimizer.zero_grad()
@@ -39,7 +37,7 @@ def on_batch_train(tokens: torch.Tensor, labels: torch.Tensor):
     logits, indicator = wc_model.forward(tokens.to(DEVICE), 0)
 
     # wc_probs = torch.nn.functional.softmax(logits, dim=1)
-    loss = torch.nn.BCELoss(indicator, labels.to(DEVICE))
+    loss = torch.nn.L1Loss()(indicator, torch.unsqueeze(labels, 1).float().to(DEVICE))
     
     loss.backward(retain_graph=True)
     optimizer.step()
@@ -50,12 +48,16 @@ def on_batch_train(tokens: torch.Tensor, labels: torch.Tensor):
     batch += 1
     pass
 
-def on_epoch():
+def on_epoch(epoch: int):
     # should run on the valuation set, to see how we are doing.
-    epoch += 1
-    batch = 0
+    print(f'epoch: {epoch}')
     pass
 
-batch_gen_train = BatchGen(CORPUS, SUFFIXES_FOLDER, BATCH_SIZE, on_batch_train, on_epoch)
 
-batch_gen_train.run(epochs=-1)
+if __name__ == '__main__':
+    # start_time = time.time()
+    # tokens = [t for t in TextfileGen(CORPUS, tokenizer).get_file_tokens()]    
+    # print(f'Loading corpus took: {time.time() - start_time:.2f} sec')
+
+    batch_gen_train = BatchGen(CORPUS, SUFFIXES_FOLDER, BATCH_SIZE, on_batch_train, on_epoch)
+    batch_gen_train.run(epochs=-1)

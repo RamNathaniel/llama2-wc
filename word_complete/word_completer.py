@@ -33,7 +33,7 @@ class WordCompleter(torch.nn.Module):
             vocab_size=WcUtils.VOCAB_SIZE,
             multiple_of=64,
             norm_eps=1e-5,
-            max_batch_size=32,
+            max_batch_size=128,
             max_seq_len=1024,
         )
 

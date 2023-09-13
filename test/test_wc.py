@@ -6,7 +6,8 @@ from ..word_complete.batch_gen import BatchGen
 def test_wc():
     model = WordCompleter()
     input = torch.rand((32, BatchGen.WC_WINDOW_SIZE), dtype=torch.float).long()
-    output = model(input, 0)
+    output, indicator = model(input, 0)
 
     assert output.shape == (32, WcUtils.VOCAB_SIZE), 'output shape is wrong'
+    assert indicator.shape == (32, 1), 'indicator shape is wrong'
     pass

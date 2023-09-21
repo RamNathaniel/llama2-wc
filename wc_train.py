@@ -29,15 +29,23 @@ wc_model.to(DEVICE)
 optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.1, momentum=0.9)
 
 
-def on_batch_train(epoch: int, batch: int, tokens: torch.Tensor, labels: torch.Tensor):
+def on_batch_train(
+        epoch: int,
+        batch: int,
+        tokens: torch.Tensor,
+        indicators: torch.Tensor,
+        llama_probs: torch.Tensor,
+        context):
+    
     start_time = time.time()
 
-    optimizer.zero_grad()
-    wc_model.zero_grad()
+    optimizer.zero_grad(set_to_none=True)
+    wc_model.zero_grad(set_to_none=True)
     logits, indicator = wc_model.forward(tokens.to(DEVICE), 0)
 
-    # wc_probs = torch.nn.functional.softmax(logits, dim=1)
-    loss = torch.nn.L1Loss()(indicator, torch.unsqueeze(labels, 1).float().to(DEVICE))
+    wc_probs = torch.nn.functional.softmax(logits, dim=1)
+    loss = torch.nn.L1Loss().to(DEVICE)(indicator, torch.unsqueeze(indicators, 1).float().to(DEVICE)) + \
+        torch.nn.CrossEntropyLoss().to(DEVICE)(wc_probs, llama_probs.to(DEVICE))
     
     loss.backward(retain_graph=True)
     optimizer.step()
@@ -48,7 +56,8 @@ def on_batch_train(epoch: int, batch: int, tokens: torch.Tensor, labels: torch.T
     batch += 1
     pass
 
-def on_epoch(epoch: int):
+
+def on_epoch(epoch: int, context):
     # should run on the valuation set, to see how we are doing.
     print(f'epoch: {epoch}')
     pass
@@ -60,4 +69,4 @@ if __name__ == '__main__':
     # print(f'Loading corpus took: {time.time() - start_time:.2f} sec')
 
     batch_gen_train = BatchGen(CORPUS, SUFFIXES_FOLDER, BATCH_SIZE, on_batch_train, on_epoch)
-    batch_gen_train.run(epochs=-1)
+    batch_gen_train.run(epochs=-1, batches=-1, context=None)

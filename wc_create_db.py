@@ -70,5 +70,4 @@ for token in tokens_gen:
         if suffix_percent >= 0.99:
             # save this point + probs
             fn = f'{output_folder}/{pos}_{suffix_percent}_probs.txt'
-            with open(fn, 'wb') as f:
-                torch.save(probs, f)
+            torch.save(probs, fn)

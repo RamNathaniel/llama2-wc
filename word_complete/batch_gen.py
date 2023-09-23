@@ -3,7 +3,6 @@ import os
 import torch
 
 from typing import Callable
-from llama import Tokenizer
 from .textfile_gen import TextfileGen
 from .wc_utils import WcUtils
 
@@ -15,20 +14,20 @@ class BatchGen:
 
     def __init__(
             self,
-            corpus: str,
+            token_gen: TextfileGen,
             suffix_folder: str,
             batch_size: int,
+            device,
             on_batch: Callable[[int, int, torch.Tensor, torch.Tensor], None],
             on_epoch: Callable[[int], None]):
         
-        self.corpus = corpus
         self.suffix_folder = suffix_folder
+        self.token_gen = token_gen
         self.batch_size = batch_size
-
-        self.tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)        
 
         self.on_epoch = on_epoch
         self.on_batch = on_batch
+        self.device = device
 
         self.files = os.listdir(self.suffix_folder)
         pass
@@ -64,13 +63,16 @@ class BatchGen:
 
         pass
 
+    def _empty_batch(self) -> torch.Tensor:
+        return torch.zeros((WcUtils.VOCAB_SIZE,), dtype=torch.float, device=self.device)
+
     def run_epoch(self, epoch: int, batches: int = -1, context = None):
         window = []  # window for llama (len=WINDOW_SIZE)
         inputs = []  # windows for wc BATCH_SIZE x WC_WINDOW_SIZE
         indicators = []  # labels for wc (len=BATCH_SIZE)
         probs_batch = []  # probs for llama (len=BATCH_SIZE x VOCAB_SIZE)
 
-        self.tokens = [t for t in TextfileGen(self.corpus, self.tokenizer).get_file_tokens()]
+        self.tokens = [t for t in self.token_gen.get_file_tokens()]
 
         pos = 0
         batch = 0
@@ -100,7 +102,7 @@ class BatchGen:
 
                 indicators.append(1 if indicator else 0)
                 inputs.append(input)
-                probs_batch.append(prs if prs is not None else torch.zeros((WcUtils.VOCAB_SIZE,), dtype=torch.float, device=torch.device('cuda:0')))
+                probs_batch.append(prs if prs is not None else self._empty_batch())
 
                 if len(inputs) == self.batch_size:
                     # we filled up the winodw, so we can start filling up the batch

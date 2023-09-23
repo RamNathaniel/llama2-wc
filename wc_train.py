@@ -5,7 +5,6 @@ import json
 import math
 from statistics import mean
 from pathlib import Path
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 from typing import Tuple, List
 import time
 from word_complete.batch_gen import BatchGen
@@ -14,13 +13,22 @@ from word_complete.wc_loss import wc_loss, get_suffix_mask
 from word_complete.word_completer import WordCompleter
 from word_complete.wc_utils import WcUtils
 
-CORPUS = '/home/ram_nathaniel/lib/1984.txt'
-SUFFIXES_FOLDER = '/home/ram_nathaniel/suffixes/1984.txt'
-DEVICE = 'cuda'
+if not WcUtils.IS_MAC:
+    from llama import ModelArgs, Transformer, Tokenizer, LLaMA
+
+BOOK = '1984'
+
+CORPUS = f'{WcUtils.DATA_ROOT}/{BOOK}.txt'
+SUFFIXES_FOLDER = f'{WcUtils.DATA_ROOT}/{BOOK}.txt'
+
+DEVICE = 'mps' if WcUtils.IS_MAC else 'cuda'
 
 BATCH_SIZE = 32
 
-tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
+if not WcUtils.IS_MAC:
+    tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
+else:
+    tokenizer = None
 
 wc_model = WordCompleter()
 wc_model.to(DEVICE)

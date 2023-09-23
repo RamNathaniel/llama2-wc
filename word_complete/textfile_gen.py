@@ -1,22 +1,45 @@
-from llama.tokenizer import Tokenizer
+import os
+from word_complete.wc_utils import WcUtils
 
 class TextfileGen:
     """
     Read a text file one token at a time
     """
-    def __init__(self, filename: str, tokenizer: Tokenizer):
+    def __init__(self, filename: str):
         self.filename = filename
-        self.tokenizer = tokenizer
+
+        if not WcUtils.IS_MAC:
+            from llama.tokenizer import Tokenizer
+            self.tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
+        else:
+            self.tokenizer = None
+
+        if self.tokenizer is None:
+            # This file must have been pre-tokenized
+            file_name, old_extension = os.path.splitext(self.filename)
+
+            if old_extension == '.txt':
+                self.filename = file_name + '.tokens'
+        
+        assert os.path.exists(self.filename), 'filename must end with .tokens'
     
     def get_file_tokens(self):
         with open(self.filename, 'r') as f:
             for line in f:
-                for t in self.tokenizer.encode(line, bos=False, eos=False):
-                    yield t
+                if self.tokenizer is not None:
+                    for t in self.tokenizer.encode(line, bos=False, eos=False):
+                        yield t
+                else:
+                    # This file must have been pre-tokenized
+                    yield int(line.strip())
 
 
 if __name__ == '__main__':
     import sys
+
+    if WcUtils.IS_MAC:
+        print('This script is not supported on Mac')
+        sys.exit(1)
 
     if len(sys.argv) != 3:
         print(f'Usage: {sys.argv[0]} <text file> <output file>')

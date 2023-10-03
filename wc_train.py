@@ -1,3 +1,4 @@
+import gc
 import os
 import torch
 
@@ -13,22 +14,15 @@ from word_complete.wc_loss import wc_loss, get_suffix_mask
 from word_complete.word_completer import WordCompleter
 from word_complete.wc_utils import WcUtils
 
-if not WcUtils.IS_MAC:
-    from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 
 BOOK = '1984'
 
-CORPUS = f'{WcUtils.DATA_ROOT}/{BOOK}.txt'
+CORPUS = f'{WcUtils.DATA_ROOT}/lib/{BOOK}.txt'
 SUFFIXES_FOLDER = f'{WcUtils.DATA_ROOT}/{BOOK}.txt'
 
 DEVICE = 'mps' if WcUtils.IS_MAC else 'cuda'
 
 BATCH_SIZE = 32
-
-if not WcUtils.IS_MAC:
-    tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
-else:
-    tokenizer = None
 
 wc_model = WordCompleter()
 wc_model.to(DEVICE)
@@ -36,6 +30,10 @@ wc_model.to(DEVICE)
 # Optimizers specified in the torch.optim package
 optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.1, momentum=0.9)
 
+def loss_function(gt_indicators: torch.Tensor, llama_probs: torch.Tensor, indicator: torch.Tensor, logits: torch.Tensor):
+    wc_probs = torch.nn.functional.softmax(logits, dim=1)
+    return torch.nn.L1Loss().to(DEVICE)(indicator, gt_indicators), \
+        torch.sum(gt_indicators * torch.nn.CrossEntropyLoss(reduction='none').to(DEVICE)(wc_probs, llama_probs)) / (torch.sum(gt_indicators) + 1)
 
 def on_batch_train(
         epoch: int,
@@ -45,23 +43,54 @@ def on_batch_train(
         llama_probs: torch.Tensor,
         context):
     
+    data_pipeline_took = time.time() - context.last_batch_time
+    
     start_time = time.time()
 
-    optimizer.zero_grad(set_to_none=True)
-    wc_model.zero_grad(set_to_none=True)
-    logits, indicator = wc_model.forward(tokens.to(DEVICE), 0)
+    context.optimizer.zero_grad(set_to_none=True)
+    context.model.zero_grad(set_to_none=True)
+    logits, indicator = context.model.forward(tokens.to(DEVICE), 0)
 
-    wc_probs = torch.nn.functional.softmax(logits, dim=1)
-    loss = torch.nn.L1Loss().to(DEVICE)(indicator, torch.unsqueeze(indicators, 1).float().to(DEVICE)) + \
-        torch.nn.CrossEntropyLoss().to(DEVICE)(wc_probs, llama_probs.to(DEVICE))
+    loss_indicators, loss_probs = loss_function(indicators.to(DEVICE), llama_probs.to(DEVICE), indicator, logits)
+
+    # wc_probs = torch.nn.functional.softmax(logits, dim=1)
+    # loss = torch.nn.L1Loss().to(DEVICE)(indicator, torch.unsqueeze(indicators, 1).float().to(DEVICE)) + \
+    #     0.1 * torch.nn.CrossEntropyLoss().to(DEVICE)(wc_probs, llama_probs.to(DEVICE))
     
+    loss = loss_indicators # + 0.00001 * loss_probs
+
     loss.backward(retain_graph=True)
-    optimizer.step()
+    context.optimizer.step()
 
     took = time.time() - start_time
-    print(f'batch: {batch}, loss: {loss:.6f}, took: {took:.2f} sec')
+    print(f'batch: {batch}, loss_ind: {loss_indicators:.6f}, loss_probs: {loss_probs:.6f}, valid: {torch.sum(indicators):.1f}, took: {took:.2f} sec, etl: {data_pipeline_took:.2f} sec')
 
     batch += 1
+
+    if batch % 200 == 0:
+        model_fn = f'{WcUtils.MODELS_FOLDER}/{BOOK}-wc-model_{batch}_{loss}.pth'
+        torch.save(context.model.state_dict(), model_fn)
+
+        optimizer_fn = f'{WcUtils.MODELS_FOLDER}/{BOOK}-optimizer_{batch}.pth'
+        torch.save(context.optimizer.state_dict(), optimizer_fn)
+
+        # del wc_model, optimizer
+
+        # reload the model and optimizer from disk - hoping to remove slowness
+
+        context.model = WordCompleter()
+        context.model.load_state_dict(torch.load(model_fn))
+        context.model.to(DEVICE)
+        
+        context.optimizer = torch.optim.SGD(context.model.parameters(), lr=0.1, momentum=0.9)
+        context.optimizer.load_state_dict(torch.load(optimizer_fn))
+
+        gc.collect()
+
+    del loss, logits, indicator, loss_indicators, loss_probs
+
+    context.last_batch_time = time.time()
+
     pass
 
 
@@ -75,6 +104,19 @@ if __name__ == '__main__':
     # start_time = time.time()
     # tokens = [t for t in TextfileGen(CORPUS, tokenizer).get_file_tokens()]    
     # print(f'Loading corpus took: {time.time() - start_time:.2f} sec')
+    token_gen = TextfileGen(CORPUS)
+    batch_gen_train = BatchGen(token_gen, SUFFIXES_FOLDER, BATCH_SIZE, DEVICE, on_batch_train, on_epoch)
 
-    batch_gen_train = BatchGen(CORPUS, SUFFIXES_FOLDER, BATCH_SIZE, on_batch_train, on_epoch)
-    batch_gen_train.run(epochs=-1, batches=-1, context=None)
+    class Context:
+        pass
+    context = Context()
+    
+    context.model = wc_model
+    context.optimizer = optimizer
+    context.last_batch_time = time.time()
+
+    # setattr(context, 'model', wc_model)
+    # setattr(context, 'optimizer', optimizer)
+    # setattr(context, 'last_batch_time', time.time())
+
+    batch_gen_train.run(epochs=-1, batches=-1, context=context)

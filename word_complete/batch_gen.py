@@ -91,12 +91,14 @@ class BatchGen:
             
             if len(window) == BatchGen.WINDOW_SIZE:
                 indicator = self.has_file(pos)
-                try:
-                    prs = self.get_llama_probs(pos)
-                except Exception as e:
-                    print(f'Error getting probs for pos: {pos} - skip it!')
-                    window.pop(0)
-                    continue
+
+                # try:
+                #     prs = self.get_llama_probs(pos)
+                # except Exception as e:
+                #     print(f'Error getting probs for pos: {pos} - skip it!')
+                #     window.pop(0)
+                #     continue
+                prs = None
                 
                 input = window[-BatchGen.WC_WINDOW_SIZE:]
 
@@ -113,6 +115,8 @@ class BatchGen:
                     if self.on_batch is not None:
                         self.on_batch(epoch, batch, wc_tokens_tensor, wc_indicators_tensor, wc_probs_tensor, context)
 
+                    del wc_tokens_tensor, wc_indicators_tensor, wc_probs_tensor
+                    
                     inputs = []
                     indicators = []
                     probs_batch = []

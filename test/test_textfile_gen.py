@@ -16,7 +16,7 @@ def test_textfile_gen():
     pass
 
 def test_batch_gen():
-    CORPUS = f'{WcUtils.DATA_ROOT}/1984.txt'
+    CORPUS = f'{WcUtils.DATA_ROOT}/lib/1984.txt'
     SUFFIXES_FOLDER = f'{WcUtils.DATA_ROOT}/1984.txt'
 
     BATCH_SIZE = 32    

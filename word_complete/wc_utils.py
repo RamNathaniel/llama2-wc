@@ -18,6 +18,8 @@ class WcUtils:
     HOME = '/Users/ramnathaniel' if IS_MAC else '/home/ram_nathaniel'
     DATA_ROOT = f'{HOME}/llama2-wc/data' if IS_MAC else f'{HOME}/suffixes'
 
+    MODELS_FOLDER = f'{HOME}/wc-models'
+
     CHECKPOINT_DIR = '/home/ram_nathaniel/llama/llama-2-7b'
     TOKENIZER_PATH = '/home/ram_nathaniel/llama/tokenizer.model'
     MAX_SEQ_LEN = 1024

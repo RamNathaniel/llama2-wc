@@ -74,10 +74,7 @@ def on_batch_train(
         optimizer_fn = f'{WcUtils.MODELS_FOLDER}/{BOOK}-optimizer_{batch}.pth'
         torch.save(context.optimizer.state_dict(), optimizer_fn)
 
-        # del wc_model, optimizer
-
         # reload the model and optimizer from disk - hoping to remove slowness
-
         context.model = WordCompleter()
         context.model.load_state_dict(torch.load(model_fn))
         context.model.to(DEVICE)
@@ -101,9 +98,6 @@ def on_epoch(epoch: int, context):
 
 
 if __name__ == '__main__':
-    # start_time = time.time()
-    # tokens = [t for t in TextfileGen(CORPUS, tokenizer).get_file_tokens()]    
-    # print(f'Loading corpus took: {time.time() - start_time:.2f} sec')
     token_gen = TextfileGen(CORPUS)
     batch_gen_train = BatchGen(token_gen, SUFFIXES_FOLDER, BATCH_SIZE, DEVICE, on_batch_train, on_epoch)
 
@@ -114,9 +108,5 @@ if __name__ == '__main__':
     context.model = wc_model
     context.optimizer = optimizer
     context.last_batch_time = time.time()
-
-    # setattr(context, 'model', wc_model)
-    # setattr(context, 'optimizer', optimizer)
-    # setattr(context, 'last_batch_time', time.time())
 
     batch_gen_train.run(epochs=-1, batches=-1, context=context)

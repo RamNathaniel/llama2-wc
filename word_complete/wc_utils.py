@@ -6,7 +6,7 @@ import math
 from statistics import mean
 from pathlib import Path
 from llama import ModelArgs, Transformer, Tokenizer, LLaMA
-from typing import Tuple, List
+from typing import Set, Tuple, List
 import time
 
 
@@ -26,6 +26,9 @@ class WcUtils:
     MAX_BATCH_SIZE = 1
 
     VOCAB_SIZE = 32000
+
+    PUNCTUATIONS: List[str] = ['.', ',', '!', '?', ';', ':', '(', ')', '[', ']', '{', '}', '<', '>']
+    PUNCTUATIONS_IDS: Set[int] = [313, 426, 500, 518, 529, 584, 869, 1405, 1577, 1723, 1738, 1919, 2056, 4514]
 
     @staticmethod
     def load_model() -> Tuple[Transformer, Tokenizer]:
@@ -116,6 +119,10 @@ class WcUtils:
     def get_puctuations_mask(t: Tokenizer, device: torch.device) -> torch.Tensor:
         punctuations_mask = torch.zeros(t.n_words, dtype=torch.bool, device=device)
         for id in range(t.n_words):
-            punctuations_mask[id] = t.id_to_piece(id) in ['.', ',', '!', '?', ';', ':', '(', ')', '[', ']', '{', '}', '<', '>']
+            punctuations_mask[id] = t.id_to_piece(id) in WcUtils.PUNCTUATIONS
         
         return punctuations_mask
+    
+    @staticmethod
+    def get_puctuations_ids(t: Tokenizer) -> Set[int]:
+        return set(t.piece_to_id(p) for p in WcUtils.PUNCTUATIONS)

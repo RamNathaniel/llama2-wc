@@ -100,7 +100,14 @@ def on_epoch(epoch: int, context):
 
 if __name__ == '__main__':
     token_gen = TextfileGen(CORPUS)
-    batch_gen_train = BatchGen(token_gen, SUFFIXES_FOLDER, BATCH_SIZE, DEVICE, on_batch_train, on_epoch)
+    batch_gen_train = BatchGen(
+        token_gen,
+        SUFFIXES_FOLDER,
+        BATCH_SIZE,
+        DEVICE,
+        tokens_set=WcUtils.PUNCTUATIONS_IDS,
+        on_batch=on_batch_train,
+        on_epoch=on_epoch)
 
     class Context:
         pass

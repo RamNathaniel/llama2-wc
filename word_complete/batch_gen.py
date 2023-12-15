@@ -3,7 +3,7 @@ import os
 import torch
 import numpy as np
 
-from typing import Callable
+from typing import Callable, Set
 from .textfile_gen import TextfileGen
 from .wc_utils import WcUtils
 
@@ -18,6 +18,7 @@ class BatchGen:
             suffix_folder: str,
             batch_size: int,
             device,
+            tokens_set: Set[int],
             on_batch: Callable[[int, int, torch.Tensor, torch.Tensor], None],
             on_epoch: Callable[[int], None]):
         
@@ -40,8 +41,22 @@ class BatchGen:
         # to change the way we check if a position has a file, i.e., look at the
         # next token and decide. We can only limit the targetted suffixes if we
         # want to make use of the database.
-        self.files: list[str] = os.listdir(self.suffix_folder)
-        self.pos_with_files = set([int(fn.split('_')[0]) for fn in self.files])
+        if tokens_set is None:
+            # Just use the files existance as the indicator
+            self.files: list[str] = os.listdir(self.suffix_folder)
+            self.pos_with_files = set([int(fn.split('_')[0]) for fn in self.files])
+        
+        else:
+            # Only use the files existance as the indicator if the next token is a puctuation
+            all_files: list[str] = os.listdir(self.suffix_folder)
+            self.files: list[str] = []
+            self.pos_with_files = set()
+            
+            for fn in all_files:
+                pos = int(fn.split('_')[0])
+                if pos + 1 < len(self.tokens) and self.tokens[pos + 1] in tokens_set:
+                    self.files.append(fn)
+                    self.pos_with_files.add(pos)
 
         self.inputs_np: np.ndarray = None  # Inputs for the batch for wc model (/classifier) 
         self.tokens_np: np.array = None  # All tokens in a numpy array

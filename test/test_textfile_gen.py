@@ -52,7 +52,14 @@ def test_batch_gen():
         context['batch_counter'] = 0
         pass
 
-    batch_gen_train = BatchGen(textfile_gen, SUFFIXES_FOLDER, BATCH_SIZE, 'cpu', on_batch, on_epoch)
+    batch_gen_train = BatchGen(
+        textfile_gen,
+        SUFFIXES_FOLDER,
+        BATCH_SIZE,
+        'cpu',
+        tokens_set=None,
+        on_batch=on_batch,
+        on_epoch=on_epoch)
 
     llama_probs = batch_gen_train.get_llama_probs(54280)
     assert llama_probs.shape == torch.Size((WcUtils.VOCAB_SIZE,)), 'llama_probs shape is wrong'

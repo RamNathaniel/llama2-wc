@@ -10,7 +10,7 @@ from typing import Tuple, List
 import time
 from word_complete.batch_gen import BatchGen
 from word_complete.textfile_gen import TextfileGen
-from word_complete.wc_loss import wc_loss, get_suffix_mask
+from word_complete.wc_loss import wc_loss
 from word_complete.word_completer import WordCompleter
 from word_complete.wc_utils import WcUtils
 
@@ -28,10 +28,11 @@ wc_model = WordCompleter()
 wc_model.to(DEVICE)
 
 # Optimizers specified in the torch.optim package
-optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.1, momentum=0.9)
+optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.001, momentum=0.9)
 
 def loss_function(gt_indicators: torch.Tensor, llama_probs: torch.Tensor, indicator: torch.Tensor, logits: torch.Tensor):
     wc_probs = torch.nn.functional.softmax(logits, dim=1)
+    # sig = torch.nn.functional.sigmoid(indicator)
     return torch.nn.L1Loss().to(DEVICE)(indicator, gt_indicators), \
         torch.sum(gt_indicators * torch.nn.CrossEntropyLoss(reduction='none').to(DEVICE)(wc_probs, llama_probs)) / (torch.sum(gt_indicators) + 1)
 

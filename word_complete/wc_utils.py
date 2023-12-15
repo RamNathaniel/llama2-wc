@@ -103,3 +103,19 @@ class WcUtils:
             probs = torch.nn.functional.softmax(logits, dim=1)
         
         return probs
+
+    @staticmethod
+    def get_suffix_mask(t: Tokenizer, device: torch.device) -> torch.Tensor:
+        suffix_mask = torch.zeros(t.n_words, dtype=torch.bool, device=device)
+        for id in range(t.n_words):
+            suffix_mask[id] = t.is_suffix(id)
+        
+        return suffix_mask
+
+    @staticmethod
+    def get_puctuations_mask(t: Tokenizer, device: torch.device) -> torch.Tensor:
+        punctuations_mask = torch.zeros(t.n_words, dtype=torch.bool, device=device)
+        for id in range(t.n_words):
+            punctuations_mask[id] = t.id_to_piece(id) in ['.', ',', '!', '?', ';', ':', '(', ')', '[', ']', '{', '}', '<', '>']
+        
+        return punctuations_mask

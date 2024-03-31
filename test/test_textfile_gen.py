@@ -1,4 +1,6 @@
 import torch
+
+from utils.llama_utils import LlamaUtils
 from ..word_complete.textfile_gen import TextfileGen
 from ..word_complete.batch_gen import BatchGen
 from ..word_complete.wc_utils import WcUtils
@@ -33,7 +35,7 @@ def test_batch_gen():
     
         assert tokens.shape == (BATCH_SIZE, BatchGen.WC_WINDOW_SIZE), 'tokens shape is wrong'
         assert indicators.shape == (BATCH_SIZE, 1), 'indicators shape is wrong'
-        assert llama_probs.shape == (BATCH_SIZE, WcUtils.VOCAB_SIZE), 'llama_probs shape is wrong'
+        assert llama_probs.shape == (BATCH_SIZE, LlamaUtils.VOCAB_SIZE), 'llama_probs shape is wrong'
 
         bc = context['batch_counter']
         ec = context['epoch_counter']
@@ -62,7 +64,7 @@ def test_batch_gen():
         on_epoch=on_epoch)
 
     llama_probs = batch_gen_train.get_llama_probs(54280)
-    assert llama_probs.shape == torch.Size((WcUtils.VOCAB_SIZE,)), 'llama_probs shape is wrong'
+    assert llama_probs.shape == torch.Size((LlamaUtils.VOCAB_SIZE,)), 'llama_probs shape is wrong'
 
     context = { 'batch_counter': 0, 'epoch_counter': 0 }
     batch_gen_train.run(epochs=2, batches=5, context=context)

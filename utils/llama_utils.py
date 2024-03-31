@@ -27,6 +27,9 @@ class LlamaUtils:
 
     VOCAB_SIZE = 32000
 
+    CONTEXT_WINDOW = 4096
+    EMB_DIM = 4096
+
     PUNCTUATIONS: List[str] = ['.', ',', '!', '?', ';', ':', '(', ')', '[', ']', '{', '}', '<', '>']
     PUNCTUATIONS_IDS: Set[int] = [313, 426, 500, 518, 529, 584, 869, 1405, 1577, 1723, 1738, 1919, 2056, 4514]
 

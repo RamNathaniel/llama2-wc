@@ -4,6 +4,8 @@ import torch
 import numpy as np
 
 from typing import Callable, Set
+
+from utils.llama_utils import LlamaUtils
 from .textfile_gen import TextfileGen
 from .wc_utils import WcUtils
 
@@ -96,7 +98,7 @@ class BatchGen:
         pass
 
     def _empty_batch(self) -> torch.Tensor:
-        return torch.zeros((WcUtils.VOCAB_SIZE,), dtype=torch.float, device=self.device)
+        return torch.zeros((LlamaUtils.VOCAB_SIZE,), dtype=torch.float, device=self.device)
 
     def _set_inputs_for_pos(self, pos: int):
         for p in range(pos-self.batch_size, pos):
@@ -155,7 +157,7 @@ class BatchGen:
 
                     wc_tokens_tensor = torch.tensor(self.inputs_np).long().detach()
                     wc_indicators_tensor = torch.tensor(self.indicators_np).unsqueeze(dim=1).long().detach()
-                    wc_probs_tensor = torch.zeros((self.batch_size, WcUtils.VOCAB_SIZE), dtype=torch.float, device=self.device).detach()
+                    wc_probs_tensor = torch.zeros((self.batch_size, LlamaUtils.VOCAB_SIZE), dtype=torch.float, device=self.device).detach()
 
                     # verify that inputs_np == inputs and indicators_np == indicators
                     # for i in range(self.batch_size):

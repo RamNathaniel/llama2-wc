@@ -1,7 +1,7 @@
 from typing import List
 import torch
 
-from llama.utils.llama_utils import LlamaUtils
+from utils.llama_utils import LlamaUtils
 
 
 class Phraser(torch.nn.Module):
@@ -82,7 +82,7 @@ class Loopback(torch.nn.Module):
         self.emb = torch.nn.Embedding(LlamaUtils.VOCAB_SIZE, idea_dim)
 
     def forward(self, idea: torch.Tensor, token: int) -> torch.Tensor:
-        token = torch.tensor([token]).to(self.device)
+        token = torch.tensor([token])
         embedded_token = self.emb(token)
         b, l, d = idea.shape
         embedded_token = embedded_token.unsqueeze(0).expand(b, 1, d)

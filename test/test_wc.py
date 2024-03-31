@@ -1,5 +1,7 @@
 from typing import List
 import torch
+
+from utils.llama_utils import LlamaUtils
 from ..word_complete.wc_utils import WcUtils
 from ..word_complete.word_completer import WordCompleter
 from ..word_complete.batch_gen import BatchGen
@@ -9,14 +11,14 @@ def test_wc():
     input = torch.rand((32, BatchGen.WC_WINDOW_SIZE), dtype=torch.float).long()
     output, indicator = model(input, 0)
 
-    assert output.shape == (32, WcUtils.VOCAB_SIZE), 'output shape is wrong'
+    assert output.shape == (32, LlamaUtils.VOCAB_SIZE), 'output shape is wrong'
     assert indicator.shape == (32, 1), 'indicator shape is wrong'
     pass
 
 def test_wc_utils():
-    if not WcUtils.IS_MAC:
+    if not LlamaUtils.IS_MAC:
         from llama.tokenizer import Tokenizer
-        tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
+        tokenizer = Tokenizer(LlamaUtils.TOKENIZER_PATH)
 
         ids: List[int] = []
         for t in WcUtils.PUNCTUATIONS:

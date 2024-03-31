@@ -1,4 +1,5 @@
 import os
+from utils.llama_utils import LlamaUtils
 from word_complete.wc_utils import WcUtils
 
 class TextfileGen:
@@ -8,9 +9,9 @@ class TextfileGen:
     def __init__(self, filename: str):
         self.filename = filename
 
-        if not WcUtils.IS_MAC:
+        if not LlamaUtils.IS_MAC:
             from llama.tokenizer import Tokenizer
-            self.tokenizer = Tokenizer(WcUtils.TOKENIZER_PATH)
+            self.tokenizer = Tokenizer(LlamaUtils.TOKENIZER_PATH)
         else:
             self.tokenizer = None
 
@@ -37,7 +38,7 @@ class TextfileGen:
 if __name__ == '__main__':
     import sys
 
-    if WcUtils.IS_MAC:
+    if LlamaUtils.IS_MAC:
         print('This script is not supported on Mac')
         sys.exit(1)
 

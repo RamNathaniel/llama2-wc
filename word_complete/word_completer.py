@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from llama.model_single import ModelArgs, RMSNorm, TransformerBlock, precompute_freqs_cis
-from .wc_utils import WcUtils
+from utils.llama_utils import LlamaUtils
 
 class WordCompleter(torch.nn.Module):
     @staticmethod
@@ -29,7 +29,7 @@ class WordCompleter(torch.nn.Module):
             dim=64,  # much smaller context.
             n_layers=1,
             n_heads=8,
-            vocab_size=WcUtils.VOCAB_SIZE,
+            vocab_size=LlamaUtils.VOCAB_SIZE,
             multiple_of=64,
             norm_eps=1e-5,
             max_batch_size=128,

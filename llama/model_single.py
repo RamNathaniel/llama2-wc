@@ -212,6 +212,10 @@ class Transformer(nn.Module):
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
         )
 
+        # Used for extracting the idea at the end of the run
+        self.layer_output: torch.Tensor = None    # The output of the layer (last run)
+        self.layer_output_ind = -1  # Which layer to take the output from?
+
     @torch.inference_mode()
     def forward(self, tokens: torch.Tensor, start_pos: int):
         _bsz, seqlen = tokens.shape
@@ -226,8 +230,14 @@ class Transformer(nn.Module):
             )
             mask = torch.triu(mask, diagonal=start_pos + 1).type_as(h)
 
+        self.layout_output = None
+        layer_count = 0
         for layer in self.layers:
+            layer_count += 1
             h = layer(h, start_pos, freqs_cis, mask)
+            if layer_count == self.layer_output_ind:
+                self.layer_output = h
+
         h = self.norm(h)
         output = self.output(h[:, -1, :])  # only compute last logits
         return output.float()

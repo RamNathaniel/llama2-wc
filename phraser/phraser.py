@@ -1,9 +1,19 @@
-from typing import List
 import torch
+from torch import nn
 
-from llama.model_single import ModelArgs, Transformer
+from llama.model_single import ModelArgs, RMSNorm, TransformerBlock, precompute_freqs_cis
 from utils.llama_utils import LlamaUtils
 
+"""
+Phraser takes an internal (near end) representation of a sentence and predicts
+the next word in the sentence. It then takes the next word and predicts the next
+word after that, and so on. It is used to generate text.
+
+It contains 3 main components:
+- An extractor to get the prompt understanding and idea forming from the LLM
+- A generator (called Phraser) to generate the next word
+- A loopback to feed the generated word back in with the extractor ouptut
+"""
 
 class Phraser(torch.nn.Module):
     """
@@ -11,50 +21,55 @@ class Phraser(torch.nn.Module):
     the next word in the sentence. It then takes the next word and predicts the next
     word after that, and so on. It is used to generate text.
 
-    It contains 3 main components:
-    - An extractor to get the prompt understanding and idea forming from the LLM
-    - A generator to generate the next word
-    - A loopback to feed the generated word back in with the extractor ouptut
-
     Args:
         torch (_type_): _description_
     """
-    def __init__(self):
-        super(Phraser, self).__init__()
-        self.model, self.tokenizer = LlamaUtils.load_model()
-        model_args: ModelArgs = ModelArgs(
-            max_seq_len=LlamaUtils.MAX_SEQ_LEN, max_batch_size=LlamaUtils.MAX_BATCH_SIZE, **params
+    def __init__(self, params: ModelArgs):
+        super().__init__()
+        self.params = params
+        self.vocab_size = params.vocab_size
+        self.n_layers = params.n_layers
+
+        self.layers = torch.nn.ModuleList()
+        for layer_id in range(params.n_layers):
+            self.layers.append(TransformerBlock(layer_id, params))
+
+        self.norm = RMSNorm(params.dim, eps=params.norm_eps)
+        self.output = nn.Linear(params.dim, params.vocab_size, bias=False)
+
+        self.freqs_cis = precompute_freqs_cis(
+            self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
         )
 
-        if verbose:
-            print('Tokenizer loaded')
-
-        model_args.vocab_size = LlamaUtils.VOCAB_SIZE
-        torch.set_default_tensor_type(torch.cuda.HalfTensor)
-
-        if verbose:
-            print('Creating Transformer')
-
-        model = Transformer(model_args)
-        torch.set_default_tensor_type(torch.FloatTensor)
-        model.load_state_dict(checkpoint, strict=False)
+        pass
 
 
+    def forward(self, idea: torch.Tensor, start_pos: int) -> torch.Tensor:
+        h = idea  # back to LlaMA naming
+        seqlen = h.shape[1]
 
-    def forward(self, tokens: List[int]) -> torch.Tensor:
-        with torch.no_grad():
-            tokens_tensor = torch.unsqueeze(torch.tensor(tokens).long(), 0).cuda()
+        self.freqs_cis = self.freqs_cis.to(h.device)
+        freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
 
-            self.model.training = False
-            logits = self.model(tokens_tensor, 0)
-            probs = torch.nn.functional.softmax(logits, dim=1)[0, :]
+        mask = None
+        # if seqlen > 1:
+        #     mask = torch.full(
+        #         (1, 1, seqlen, seqlen), float("-inf"), device=tokens.device
+        #     )
+        #     mask = torch.triu(mask, diagonal=start_pos + 1).type_as(h)
 
-        return probs
+        for layer in self.layers:
+            h = layer(h, start_pos, freqs_cis, mask)
+
+        h = self.norm(h)
+        output = self.output(h[:, -1, :])  # only compute last logits
+        return output.float()
+
 
 class Extractor(torch.nn.Module):
     """
-    Extractor takes the internal representation of a sentence and predicts
-    the next word in the sentence.
+    Extractor takes the internal representation of a sentence and creates the
+    idea tensor to feed into the phraser.
 
     Nomrally it should be the identity operator.
     One day we will also try to improve the internal representation.

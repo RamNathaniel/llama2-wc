@@ -20,5 +20,7 @@ def test_loopback():
 def test_phaser_tokens():
     model, tokenizer = LlamaUtils.load_model()
     tokens = tokenizer.encode('The quick brown fox jumps over the lazy dog', False, False)
-    probs = PhraserUtils.run_llama_on_tokens(model, tokens)
+    probs, idea = PhraserUtils.run_llama_on_tokens(model, tokens)
     assert probs.shape == (LlamaUtils.VOCAB_SIZE,)
+    print(idea.shape)
+    assert idea.shape == (1, len(tokens), LlamaUtils.EMB_DIM)

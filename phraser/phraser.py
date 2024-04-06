@@ -1,6 +1,7 @@
 from typing import List
 import torch
 
+from llama.model_single import ModelArgs, Transformer
 from utils.llama_utils import LlamaUtils
 
 
@@ -20,6 +21,25 @@ class Phraser(torch.nn.Module):
     """
     def __init__(self):
         super(Phraser, self).__init__()
+        self.model, self.tokenizer = LlamaUtils.load_model()
+        model_args: ModelArgs = ModelArgs(
+            max_seq_len=LlamaUtils.MAX_SEQ_LEN, max_batch_size=LlamaUtils.MAX_BATCH_SIZE, **params
+        )
+
+        if verbose:
+            print('Tokenizer loaded')
+
+        model_args.vocab_size = LlamaUtils.VOCAB_SIZE
+        torch.set_default_tensor_type(torch.cuda.HalfTensor)
+
+        if verbose:
+            print('Creating Transformer')
+
+        model = Transformer(model_args)
+        torch.set_default_tensor_type(torch.FloatTensor)
+        model.load_state_dict(checkpoint, strict=False)
+
+
 
     def forward(self, tokens: List[int]) -> torch.Tensor:
         with torch.no_grad():

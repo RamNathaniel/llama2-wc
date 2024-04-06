@@ -15,7 +15,7 @@ class PhraserUtils:
     LAYER_TO_USE = 30
 
     @staticmethod
-    def run_llama_on_tokens(model: Transformer, tokens: List[int]) -> torch.Tensor:
+    def run_llama_on_tokens(model: Transformer, tokens: List[int]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             tokens_tensor = torch.unsqueeze(torch.tensor(tokens).long(), 0).cuda()
 
@@ -23,7 +23,7 @@ class PhraserUtils:
             model.layer_output_ind = PhraserUtils.LAYER_TO_USE
             logits = model(tokens_tensor, 0)
             probs = torch.nn.functional.softmax(logits, dim=1)[0, :]
-            idea = model.layer_output.no_grad()
+            idea = model.layer_output
 
         return probs, idea
 

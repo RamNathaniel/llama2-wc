@@ -51,7 +51,8 @@ class Phraser(torch.nn.Module):
         self.freqs_cis = self.freqs_cis.to(h.device)
         freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
 
-        mask = None
+        mask = None # we can use any word at any position
+        
         # if seqlen > 1:
         #     mask = torch.full(
         #         (1, 1, seqlen, seqlen), float("-inf"), device=tokens.device

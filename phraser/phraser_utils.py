@@ -4,7 +4,7 @@ import torch
 from statistics import mean
 from pathlib import Path
 from llama import ModelArgs, Transformer, Tokenizer
-from typing import Set, Tuple, List
+from typing import Tuple, List
 
 from phraser.phraser import Loopback
 from utils.llama_utils import LlamaUtils
@@ -29,15 +29,17 @@ class PhraserUtils:
         return probs, idea
 
     @staticmethod
-    def run_llama_on_batch(model: Transformer, tokens: List[List[int]]) -> torch.Tensor:
+    def run_llama_on_batch(model: Transformer, tokens: List[List[int]]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             tokens_tensor = torch.tensor(tokens).long().cuda()
 
             model.training = False
+            model.layer_output_ind = PhraserUtils.LAYER_TO_USE
             logits = model(tokens_tensor, 0)
             probs = torch.nn.functional.softmax(logits, dim=1)
+            idea = model.layer_output
         
-        return probs
+        return probs, idea
 
 
     @staticmethod
@@ -65,7 +67,11 @@ class PhraserUtils:
         pass
 
     @staticmethod
-    def run_phraser_on_tokens(tokens: List[int], llama_model: Transformer, phraser: Transformer, loopback: Loopback) -> Tuple[torch.Tensor, torch.Tensor]:
+    def run_phraser_on_tokens(
+            tokens: List[int],
+            llama_model: Transformer,
+            phraser: Transformer,
+            loopback: Loopback) -> Tuple[torch.Tensor, torch.Tensor]:
         # Run the Llama+Phraser loop on a list of tokens.
         # Check the generation file for how to stop the loop.
         with torch.no_grad():
@@ -87,6 +93,5 @@ class PhraserUtils:
 
                 # Update the tokens_tensor
                 idea = loopback(idea, next_token)
-
 
         return probs, idea

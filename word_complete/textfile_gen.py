@@ -1,6 +1,7 @@
 import os
+from llama.tokenizer import Tokenizer
 from utils.llama_utils import LlamaUtils
-from word_complete.wc_utils import WcUtils
+
 
 class TextfileGen:
     """

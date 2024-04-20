@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Tuple, List
 import time
 from phraser.phraser_utils import PhraserUtils
+from utils.llama_utils import LlamaUtils
 from word_complete.batch_gen import BatchGen
 from word_complete.textfile_gen import TextfileGen
 from word_complete.wc_loss import wc_loss
@@ -36,7 +37,7 @@ The plan:
 1) Run the Llama model on the batch and get the ideas for a batch. Inputs are
    in a diagonal matrix, so we can run the Llama model on the whole input
    lengths > MIN_PROMPT_LEN
-2) Use the loopback to add the next token to the idea (for each input)
+2) Use the loopback to add the next token to the idea (for each input).
 3) Run the phraser model and get the probs.
 4) Train the phraser model + loopback model.
 5) Get the next token in the book and loopback again.
@@ -44,11 +45,18 @@ The plan:
 7) Jump to another position in the book and repeat.
 """
 
-PhraserUtils.run_llama_on_batch()
+llama_model = LlamaUtils.load_model()
+
+probs, ideas = PhraserUtils.run_llama_on_batch(llama_model, )
+
 # Optimizers specified in the torch.optim package
 optimizer = torch.optim.SGD(wc_model.parameters(), lr=0.001, momentum=0.9)
 
-def loss_function(gt_indicators: torch.Tensor, llama_probs: torch.Tensor, indicator: torch.Tensor, logits: torch.Tensor):
+def loss_function(
+        gt_indicators: torch.Tensor,
+        llama_probs: torch.Tensor,
+        indicator: torch.Tensor,
+        logits: torch.Tensor):
     wc_probs = torch.nn.functional.softmax(logits, dim=1)
     # sig = torch.nn.functional.sigmoid(indicator)
     return torch.nn.L1Loss().to(DEVICE)(indicator, gt_indicators), \
@@ -131,7 +139,7 @@ if __name__ == '__main__':
         pass
     context = Context()
     
-    context.model = wc_model
+    context.llama_model = llama_model
     context.optimizer = optimizer
     context.last_batch_time = time.time()
 
